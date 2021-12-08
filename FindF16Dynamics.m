@@ -116,39 +116,36 @@ B_lat_lo = SS_lat_lo.A([3,4,5,6],[8,9]);
 C_lat_lo = SS_lat_lo.C([1 2 3 4 ], [1 2 3 4 ]);
 D_lat_lo = SS_lat_lo.D([1 2 3 4 ], [1 2]);
 
-[Wn_long,Z_long,P_long]=damp(A_long_lo);
+[Omega_n_long,Z_long,~]=damp(A_long_lo);
 
+T_long1=-log(0.5)/(Z_long(1)*Omega_n_long(1));
+T_long2=-log(0.5)/(Z_long(3)*Omega_n_long(3));
 
-T_long1=-log(0.5)/(Z_long(1)*Wn_long(1));
-T_long2=-log(0.5)/(Z_long(3)*Wn_long(3));
+Omega_d_long1=Omega_n_long(1)*sqrt(1-Z_long(1)^2);
+Omega_d_long2=Omega_n_long(3)*sqrt(1-Z_long(3)^2);
 
-Wd_long1=Wn_long(1)*sqrt(1-Z_long(1)^2);
-Wd_long2=Wn_long(3)*sqrt(1-Z_long(3)^2);
+Period_long1=2*pi/Omega_d_long1;
+Period_long2=2*pi/Omega_d_long2;
 
-Period_long1=2*pi/Wd_long1;
-Period_long2=2*pi/Wd_long2;
+[Omega_n_lat,Z_lat,~]=damp(A_lat_lo);
 
-[Wn_lat,Z_lat,P_lat]=damp(A_lat_lo);
+T_lat1=-log(0.5)/(Z_lat(1)*Omega_n_lat(1));
+T_lat2=-log(0.5)/(Z_lat(3)*Omega_n_lat(3));
+T_lat3=-log(0.5)/(Z_lat(4)*Omega_n_lat(4));
 
+Omega_d_lat1=Omega_n_lat(1)*sqrt(1-Z_lat(1)^2);
+Period_lat1=2*pi/Omega_d_lat1;
 
-T_lat1=-log(0.5)/(Z_lat(1)*Wn_lat(1));
-T_lat2=-log(0.5)/(Z_lat(3)*Wn_lat(3));
-T_lat3=-log(0.5)/(Z_lat(4)*Wn_lat(4));
-
-Wd_lat1=Wn_lat(1)*sqrt(1-Z_lat(1)^2);
-Period_lat1=2*pi/Wd_lat1;
-
-tao1=1/(Z_lat(3)*Wn_lat(3));
-tao2=1/(Z_lat(4)*Wn_lat(4));
-
+tao1=1/(Z_lat(3)*Omega_n_lat(3));
+tao2=1/(Z_lat(4)*Omega_n_lat(4));
 
 %% plot eigenmotions
 
 %transferfunctions elevator and rudder
-[NUMlong,DENlong]=ss2tf(A_long_lo,B_long_lo,C_long_lo,D_long_lo,2);
-[NUMlat,DENlat]=ss2tf(A_lat_lo,B_lat_lo,C_lat_lo,D_lat_lo,2);
+[Numerator_long,Denominator_long]=ss2tf(A_long_lo,B_long_lo,C_long_lo,D_long_lo,2);
+[Numerator_lat,Denominator_lat]=ss2tf(A_lat_lo,B_lat_lo,C_lat_lo,D_lat_lo,2);
 
-tfphugoid=tf(NUMlong(1,:),DENlong);
+tfphugoid=tf(Numerator_long(1,:),Denominator_long);
 
 figure(12);
 t=0:0.1:1200;
@@ -162,7 +159,7 @@ title('Phugoid');
 %changedependvar(hy,'y');
 grid on;
 
-tfshortp=tf(NUMlong(4,:),DENlong);
+tfshortp=tf(Numerator_long(4,:),Denominator_long);
 
 figure(13);
 t=0:0.1:10;
@@ -176,8 +173,8 @@ title('Short Period');
 %changedependvar(hy,'y');
 grid on;
 
-tfdrollrate=tf(-NUMlat(3,:),DENlat);
-tfdyawrate=tf(-NUMlat(2,:),DENlat);
+tfdrollrate=tf(-Numerator_lat(3,:),Denominator_lat);
+tfdyawrate=tf(-Numerator_lat(2,:),Denominator_lat);
 
 figure(14);
 t=0:0.1:15;
@@ -190,7 +187,7 @@ xlabel('p [deg/s]');
 ylabel('r [deg/s]');
 
 
-tfspiral=tf(NUMlat(1,:),DENlat);
+tfspiral=tf(Numerator_lat(1,:),Denominator_lat);
 
 figure(15);
 t=0:0.1:600;
@@ -222,13 +219,213 @@ title('Aperiodic Roll');
 grid on;
 
 
+sys_long = ss(A_long_lo,B_long_lo,C_long_lo,D_long_lo);
+sys_lat = ss(A_lat_lo,B_lat_lo,C_lat_lo,D_lat_lo);
 
 
+%% Longitudinal
+Eig_long=eig(A_long_lo);
+
+I_Eig_long=imag(Eig_long);
+RE_Eig_long=real(Eig_long);
+c_long=[RE_Eig_long(1,1) RE_Eig_long(3,1)]';
+n_long=[I_Eig_long(1,1) I_Eig_long(3,1)]';
 
 
+T_12_long=-0.693./c_long; % [s]
+P_long= 2*pi./n_long; % [s]
+
+Damp_long=-c_long./(sqrt(n_long.^(2)+c_long.^(2)));
+wn_long=(sqrt(n_long.^(2)+c_long.^(2))).*sqrt(1-Damp_long.^2); % [rad/s]
+
+T_long = 0:0.01:300;
+u_long =[0*T_long' (-1*(pi/180)*ones(1,length(T_long))-1.7797*(pi/180))'];
+Y_long = lsim(sys_long,u_long,T_long');
+
+V_long = Y_long(:,1) + 900*0.3048;
+Theta_long = Y_long(:,3) + 0;
+Alpha_long = Y_long(:,2) + 1.6235*pi/180;
+Pitch_long = Y_long(:,4);
+
+figure(1);
+subplot(2,1,1);
+plot(T_long,(Alpha_long*(180/pi)));
+axis([0 5 0 15]);
+xlabel('time (s)'); ylabel('angle of attack [deg]');
+title('Short period characteristics')
+grid on;
+subplot(2,1,2);
+plot(T_long,Pitch_long);
+axis([0 5 0 0.4]);
+xlabel('time (s)'); ylabel('pitch rate [rad/s]');
+grid on;
+
+figure(2);
+subplot(2,1,1);
+plot(T_long,V_long);
+xlabel('Time [s]'); ylabel('Airspeed [m/s]');
+grid on;
+title('Phugoid characteristics');
+subplot(2,1,2);
+plot(T_long,Pitch_long);
+xlabel('Time [s]'); ylabel('Pitch rate [rad/s]');
+grid on;
+
+%% Lateral
+Eig_lat=eig(A_lat_lo);
+
+I_Eig_lat=imag(Eig_lat);
+RE_Eig_lat=real(Eig_lat);
+c_lat=[RE_Eig_lat(2,1) RE_Eig_lat(3,1) RE_Eig_lat(4,1)]';
+n_lat = [I_Eig_lat(1) 0 0]';
+
+T_12_lat=-0.693./c_lat; % [s]
+P_lat= 2*pi./n_lat(1); % [s]
+
+Damp_lat=-c_lat./(sqrt(n_lat.^(2)+c_lat.^(2)));
+wn_lat=(sqrt(n_lat.^(2)+c_lat.^(2))).*sqrt(1-Damp_lat.^2); % [rad/s]
+tau_lat=-1./Eig_lat(3:4);
 
 
+T_lat1 = 0:0.01:20;
+T_lat2 = 0:0.01:80;
+u_lat_DR =[0*T_lat1' (-2*(pi/180)*ones(1,length(T_lat1)))'];
+u_lat_AR=[(-5*(pi/180)*ones(1,length(T_lat1)))' 0*T_lat1'];
+u_lat_SP= zeros(2,length(T_lat2));
+x_lat_SP=pi/180*[0 -13 0 0];
 
+Y_lat_DR = lsim(sys_lat,u_lat_DR,T_lat1');
+Y_lat_AR = lsim(sys_lat,u_lat_AR,T_lat1');
+Y_lat_SP = lsim(sys_lat,u_lat_SP,T_lat2',x_lat_SP);
+
+figure(3);
+subplot(2,1,1);
+plot(T_lat1,Y_lat_DR(:,3))
+ylabel(' Roll rate [rad/s]')
+hold on
+grid on
+title('Dutch Roll characteristics')
+subplot(2,1,2);
+plot(T_lat1,Y_lat_DR(:,4))
+hold on
+xlabel('Time [s]')
+ylabel(' Yaw rate [rad/s]')
+grid on;
+
+
+figure(4);
+subplot(2,1,1);
+plot(T_lat1,Y_lat_AR(:,3))
+hold on
+grid on
+ylabel('Roll rate [rad/s]')
+title('Aperiodic roll characteristics')
+subplot(2,1,2);
+plot(T_lat1,Y_lat_AR(:,4))
+hold on
+xlabel('Time [s]')
+ylabel('Yaw rate [rad/s]')
+grid on;
+
+
+figure(5);
+subplot(2,1,1);
+plot(T_lat2,Y_lat_SP(:,2))
+ylabel('Roll angle [deg]')
+grid on
+hold on
+title('Spiral characteristics')
+subplot(2,1,2);
+plot(T_lat2,Y_lat_SP(:,4))
+hold on
+xlabel('Time [s]')
+ylabel('Yaw rate [rad/s]')
+grid on;
+
+%% Display SP
+
+disp('eigenvalue short period')
+disp(Eig_long(1:2))
+
+disp('Period short period [s]')
+disp(P_long(1))
+
+disp('half amplitude short period [s]')
+disp(T_12_long(1))
+
+disp('Damping ratio short period')
+disp(Damp_long(1))
+
+disp('natural frequency short period [rad/s]')
+disp(wn_long(1))
+
+disp('-----------------------------------------------')
+%% Display phugoid
+disp('eigenvalue Phugoid')
+disp(Eig_long(3:4))
+
+disp('Period short Phugoid [s]')
+disp(P_long(2))
+
+disp('half amplitude Phugoid [s]')
+disp(T_12_long(2))
+
+disp('Damping ratio Phugoid')
+disp(Damp_long(2))
+
+disp('natural frequency Phugoid [rad/s]')
+disp(wn_long(2))
+
+disp('-----------------------------------------------')
+
+%% Display Dutch roll
+disp('eigenvalue Dutch roll')
+disp(Eig_lat(1:2))
+
+disp('Period short Dutch roll [s]')
+disp(P_lat(1))
+
+disp('half amplitude Dutch roll [s]')
+disp(T_12_lat(1))
+
+disp('Damping ratio Dutch roll')
+disp(Damp_lat(1))
+
+disp('natural frequency Dutch roll [rad/s]')
+disp(wn_lat(1))
+
+disp('-----------------------------------------------')
+
+%% Display aperiodic roll
+disp('eigenvalue aperiodic roll')
+disp(Eig_lat(3))
+
+disp('half amplitude aperiodic roll [s]')
+disp(T_12_lat(2))
+
+disp('Time constant tau aperiodic roll [s]')
+disp(tau_lat(1))
+
+
+disp('natural frequency aperiodic roll [rad/s]')
+disp(wn_lat(2))
+
+disp('-----------------------------------------------')
+%% Display spiral
+disp('eigenvalue spiral')
+disp(Eig_lat(4))
+
+disp('half amplitude spiral [s]')
+disp(T_12_lat(3))
+
+disp('Time constant tau spiral [s]')
+disp(tau_lat(2))
+
+
+disp('natural frequency spiral [rad/s]')
+disp(wn_lat(2))
+
+disp('-----------------------------------------------')
 
 
 
